@@ -1,0 +1,55 @@
+@using KingsCup.Core.Models
+
+<div class="playing-card @GetSuitColorClass()">
+    <div class="card-rank">@GetRankDisplay()</div>
+    <div class="card-suit">@GetSuitSymbol()</div>
+    <div class="card-center">
+        <div class="card-suit-large">@GetSuitSymbol()</div>
+        <div class="card-rank-large">@GetRankDisplay()</div>
+    </div>
+</div>
+
+@code {
+    [Parameter]
+    public Card? CurrentCard { get; set; }
+
+    private string GetRankDisplay()
+    {
+        if (CurrentCard == null) return "";
+        
+        return CurrentCard.Rank switch
+        {
+            Rank.Ace => "A",
+            Rank.Jack => "J",
+            Rank.Queen => "Q",
+            Rank.King => "K",
+            _ => ((int)CurrentCard.Rank).ToString()
+        };
+    }
+
+    private string GetSuitSymbol()
+    {
+        if (CurrentCard == null) return "";
+        
+        return CurrentCard.Suit switch
+        {
+            Suit.Hearts => "♥",
+            Suit.Diamonds => "♦",
+            Suit.Clubs => "♣",
+            Suit.Spades => "♠",
+            _ => ""
+        };
+    }
+
+    private string GetSuitColorClass()
+    {
+        if (CurrentCard == null) return "";
+        
+        return CurrentCard.Suit switch
+        {
+            Suit.Hearts => "suit-red",
+            Suit.Diamonds => "suit-red",
+            _ => "suit-black"
+        };
+    }
+}

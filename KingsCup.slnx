@@ -1,0 +1,9 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/KingsCup.Core/KingsCup.Core.csproj" />
+    <Project Path="src/KingsCup.Web/KingsCup.Web.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/KingsCup.Tests/KingsCup.Tests.csproj" />
+  </Folder>
+</Solution>

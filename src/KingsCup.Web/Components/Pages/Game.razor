@@ -1,0 +1,335 @@
+@page "/game/{RoomCode}"
+@rendermode InteractiveServer
+@using Microsoft.AspNetCore.SignalR.Client
+@using KingsCup.Core.Models
+@inject NavigationManager Navigation
+@implements IAsyncDisposable
+
+<PageTitle>Kings Cup - @RoomCode</PageTitle>
+
+<div class="game-container">
+    @if (isConnecting)
+    {
+        <div class="loading-screen">
+            <h2>Connecting...</h2>
+            <div class="spinner"></div>
+        </div>
+    }
+    else if (!string.IsNullOrEmpty(errorMessage))
+    {
+        <div class="error-screen">
+            <h2>Error</h2>
+            <p>@errorMessage</p>
+            <button class="btn btn-primary" @onclick="GoHome">Back to Home</button>
+        </div>
+    }
+    else if (currentState == GameState.Lobby)
+    {
+        <div class="lobby-view">
+            <div class="room-info">
+                <h2>Room Code</h2>
+                <div class="room-code-display">@RoomCode</div>
+                <p class="room-hint">Share this code with friends to join!</p>
+            </div>
+
+            <PlayerList Players="@players" />
+
+            @if (players.Count >= 2)
+            {
+                <button class="btn btn-lg btn-primary" @onclick="StartGame">Start Game</button>
+            }
+            else
+            {
+                <p class="waiting-message">Waiting for at least 2 players...</p>
+            }
+
+            <button class="btn btn-link" @onclick="LeaveAndGoHome">Leave Game</button>
+        </div>
+    }
+    else if (currentState == GameState.Playing)
+    {
+        <div class="playing-view">
+            <div class="game-info">
+                <div class="info-item">
+                    <span class="info-label">Cards Left:</span>
+                    <span class="info-value">@cardsRemaining</span>
+                </div>
+                <div class="info-item">
+                    <span class="info-label">Kings Drawn:</span>
+                    <span class="info-value">@kingsDrawn / 4</span>
+                </div>
+            </div>
+
+            @if (currentCard != null)
+            {
+                <div class="card-display-area">
+                    <CardDisplay CurrentCard="@currentCard" />
+                    
+                    <div class="rule-display">
+                        <h3 class="rule-name">@currentRule?.Name</h3>
+                        <p class="rule-description">@currentRule?.Description</p>
+                    </div>
+                </div>
+            }
+
+            <div class="turn-info">
+                @if (IsMyTurn())
+                {
+                    <p class="your-turn">It's your turn!</p>
+                    <button class="btn btn-lg btn-primary draw-button" @onclick="DrawCard">Draw Card</button>
+                }
+                else
+                {
+                    <p class="waiting-turn">Waiting for @GetCurrentPlayerName()...</p>
+                }
+            </div>
+
+            <PlayerList Players="@players" CurrentPlayerId="@currentPlayerId" />
+            
+            <button class="btn btn-link" @onclick="LeaveAndGoHome">Leave Game</button>
+        </div>
+    }
+    else if (currentState == GameState.Finished)
+    {
+        <div class="finished-view">
+            <h2>Game Over!</h2>
+            
+            @if (!string.IsNullOrEmpty(gameOverMessage))
+            {
+                <p class="game-over-message">@gameOverMessage</p>
+            }
+
+            @if (currentCard != null)
+            {
+                <div class="final-card">
+                    <p>Final card drawn:</p>
+                    <CardDisplay CurrentCard="@currentCard" />
+                    @if (currentRule != null)
+                    {
+                        <div class="rule-display">
+                            <h3 class="rule-name">@currentRule.Name</h3>
+                            <p class="rule-description">@currentRule.Description</p>
+                        </div>
+                    }
+                </div>
+            }
+
+            <button class="btn btn-lg btn-primary" @onclick="GoHome">Back to Home</button>
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter]
+    public string RoomCode { get; set; } = string.Empty;
+
+    [SupplyParameterFromQuery(Name = "playerName")]
+    public string? PlayerName { get; set; }
+
+    private HubConnection? hubConnection;
+    private bool isConnecting = true;
+    private string errorMessage = string.Empty;
+    
+    // Game state
+    private GameState currentState = GameState.Lobby;
+    private List<Player> players = new();
+    private string myPlayerId = string.Empty;
+    private string? currentPlayerId;
+    private Card? currentCard;
+    private KingsCupRule? currentRule;
+    private int cardsRemaining = 52;
+    private int kingsDrawn = 0;
+    private string gameOverMessage = string.Empty;
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (string.IsNullOrEmpty(PlayerName))
+        {
+            errorMessage = "Player name is required";
+            isConnecting = false;
+            return;
+        }
+
+        try
+        {
+            // Build SignalR connection
+            hubConnection = new HubConnectionBuilder()
+                .WithUrl(Navigation.ToAbsoluteUri("/gamehub"))
+                .WithAutomaticReconnect()
+                .Build();
+
+            // Register client callbacks
+            RegisterHubCallbacks();
+
+            // Start connection
+            await hubConnection.StartAsync();
+
+            // Create or join game
+            if (RoomCode.Equals("new", StringComparison.OrdinalIgnoreCase))
+            {
+                var roomCode = await hubConnection.InvokeAsync<string>("CreateGame", PlayerName);
+                RoomCode = roomCode;
+                Navigation.NavigateTo($"/game/{roomCode}?playerName={Uri.EscapeDataString(PlayerName)}", replace: true);
+            }
+            else
+            {
+                await hubConnection.InvokeAsync("JoinGame", RoomCode, PlayerName);
+            }
+
+            isConnecting = false;
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Failed to connect: {ex.Message}";
+            isConnecting = false;
+        }
+    }
+
+    private void RegisterHubCallbacks()
+    {
+        if (hubConnection == null) return;
+
+        hubConnection.On<string, string>("PlayerJoined", (playerId, playerName) =>
+        {
+            var existingPlayer = players.FirstOrDefault(p => p.Id == playerId);
+            if (existingPlayer == null)
+            {
+                players.Add(new Player { Id = playerId, Name = playerName, IsConnected = true });
+            }
+            InvokeAsync(StateHasChanged);
+        });
+
+        hubConnection.On<string, string>("PlayerLeft", (playerId, playerName) =>
+        {
+            var player = players.FirstOrDefault(p => p.Id == playerId);
+            if (player != null)
+            {
+                players.Remove(player);
+            }
+            InvokeAsync(StateHasChanged);
+        });
+
+        hubConnection.On<string, string>("PlayerDisconnected", (playerId, playerName) =>
+        {
+            var player = players.FirstOrDefault(p => p.Id == playerId);
+            if (player != null)
+            {
+                player.IsConnected = false;
+            }
+            InvokeAsync(StateHasChanged);
+        });
+
+        hubConnection.On("GameStarted", () =>
+        {
+            currentState = GameState.Playing;
+            InvokeAsync(StateHasChanged);
+        });
+
+        hubConnection.On<string, string, Card, string, string, int>("CardDrawn", 
+            (playerId, playerName, card, ruleName, ruleDescription, remaining) =>
+        {
+            currentCard = card;
+            currentRule = new KingsCupRule(ruleName, ruleDescription);
+            cardsRemaining = remaining;
+            
+            if (card.Rank == Rank.King)
+            {
+                kingsDrawn++;
+            }
+            
+            InvokeAsync(StateHasChanged);
+        });
+
+        hubConnection.On<string, string>("GameOver", (playerId, playerName) =>
+        {
+            currentState = GameState.Finished;
+            gameOverMessage = $"{playerName} drew the 4th King!";
+            InvokeAsync(StateHasChanged);
+        });
+
+        hubConnection.On<string>("TurnChanged", (playerId) =>
+        {
+            currentPlayerId = playerId;
+            InvokeAsync(StateHasChanged);
+        });
+
+        hubConnection.On<string, List<Player>, GameState, string?>("RoomStateChanged", 
+            (selfPlayerId, playerList, state, currentTurnPlayerId) =>
+        {
+            myPlayerId = selfPlayerId;
+            players = playerList;
+            currentState = state;
+            currentPlayerId = currentTurnPlayerId;
+            InvokeAsync(StateHasChanged);
+        });
+    }
+
+    private async Task StartGame()
+    {
+        if (hubConnection != null)
+        {
+            try
+            {
+                await hubConnection.InvokeAsync("StartGame", RoomCode);
+            }
+            catch (Exception ex)
+            {
+                errorMessage = $"Failed to start game: {ex.Message}";
+            }
+        }
+    }
+
+    private async Task DrawCard()
+    {
+        if (hubConnection != null && IsMyTurn())
+        {
+            try
+            {
+                await hubConnection.InvokeAsync("DrawCard", RoomCode);
+            }
+            catch (Exception ex)
+            {
+                errorMessage = $"Failed to draw card: {ex.Message}";
+            }
+        }
+    }
+
+    private async Task LeaveAndGoHome()
+    {
+        if (hubConnection != null)
+        {
+            try
+            {
+                await hubConnection.InvokeAsync("LeaveGame", RoomCode);
+            }
+            catch { }
+        }
+        GoHome();
+    }
+
+    private void GoHome()
+    {
+        Navigation.NavigateTo("/");
+    }
+
+    private bool IsMyTurn()
+    {
+        return !string.IsNullOrEmpty(myPlayerId) && 
+               !string.IsNullOrEmpty(currentPlayerId) && 
+               myPlayerId == currentPlayerId;
+    }
+
+    private string GetCurrentPlayerName()
+    {
+        var player = players.FirstOrDefault(p => p.Id == currentPlayerId);
+        return player?.Name ?? "Unknown";
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        if (hubConnection != null)
+        {
+            await hubConnection.DisposeAsync();
+        }
+    }
+}

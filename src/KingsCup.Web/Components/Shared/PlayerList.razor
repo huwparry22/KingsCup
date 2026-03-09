@@ -1,0 +1,51 @@
+@using KingsCup.Core.Models
+
+<div class="player-list">
+    <h3>Players (@Players.Count)</h3>
+    <ul>
+        @foreach (var player in Players)
+        {
+            <li class="@GetPlayerClass(player)">
+                <span class="player-name">@player.Name</span>
+                @if (IsCurrentTurn(player))
+                {
+                    <span class="turn-indicator">👉</span>
+                }
+                @if (!player.IsConnected)
+                {
+                    <span class="disconnected-badge">Disconnected</span>
+                }
+            </li>
+        }
+    </ul>
+</div>
+
+@code {
+    [Parameter]
+    public List<Player> Players { get; set; } = new();
+
+    [Parameter]
+    public string? CurrentPlayerId { get; set; }
+
+    private bool IsCurrentTurn(Player player)
+    {
+        return !string.IsNullOrEmpty(CurrentPlayerId) && player.Id == CurrentPlayerId;
+    }
+
+    private string GetPlayerClass(Player player)
+    {
+        var classes = new List<string> { "player-item" };
+        
+        if (IsCurrentTurn(player))
+        {
+            classes.Add("current-turn");
+        }
+        
+        if (!player.IsConnected)
+        {
+            classes.Add("disconnected");
+        }
+        
+        return string.Join(" ", classes);
+    }
+}

@@ -1,0 +1,13 @@
+{
+  "version": 2,
+  "dgSpecHash": "iYIAbGk4F8k=",
+  "success": true,
+  "projectFilePath": "C:\\_hpDev\\KingsCup\\src\\KingsCup.Web\\KingsCup.Web.csproj",
+  "expectedPackageFiles": [
+    "C:\\Users\\huparry\\.nuget\\packages\\microsoft.aspnetcore.app.internal.assets\\10.0.3\\microsoft.aspnetcore.app.internal.assets.10.0.3.nupkg.sha512",
+    "C:\\Users\\huparry\\.nuget\\packages\\microsoft.aspnetcore.http.connections.client\\10.0.0\\microsoft.aspnetcore.http.connections.client.10.0.0.nupkg.sha512",
+    "C:\\Users\\huparry\\.nuget\\packages\\microsoft.aspnetcore.signalr.client\\10.0.0\\microsoft.aspnetcore.signalr.client.10.0.0.nupkg.sha512",
+    "C:\\Users\\huparry\\.nuget\\packages\\microsoft.aspnetcore.signalr.client.core\\10.0.0\\microsoft.aspnetcore.signalr.client.core.10.0.0.nupkg.sha512"
+  ],
+  "logs": []
+}

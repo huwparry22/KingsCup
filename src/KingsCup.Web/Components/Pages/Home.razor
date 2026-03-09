@@ -1,0 +1,159 @@
+﻿@page "/"
+@inject NavigationManager Navigation
+
+<PageTitle>Kings Cup</PageTitle>
+
+<div class="home-container">
+    <div class="game-title">
+        <h1>Kings Cup 🃏</h1>
+        <p class="subtitle">The classic drinking card game</p>
+    </div>
+
+    @if (!showStartForm && !showJoinForm)
+    {
+        <div class="action-buttons">
+            <button class="btn btn-lg btn-primary" @onclick="ShowStartForm">Start New Game</button>
+            <button class="btn btn-lg btn-secondary" @onclick="ShowJoinForm">Join Game</button>
+        </div>
+    }
+
+    @if (showStartForm)
+    {
+        <div class="game-form">
+            <h2>Start New Game</h2>
+            <EditForm Model="@startModel" OnValidSubmit="StartNewGame">
+                <DataAnnotationsValidator />
+                <div class="form-group">
+                    <label for="playerName">Your Name:</label>
+                    <InputText id="playerName" class="form-control" @bind-Value="startModel.PlayerName" placeholder="Enter your name" />
+                    <ValidationMessage For="@(() => startModel.PlayerName)" />
+                </div>
+                <div class="form-actions">
+                    <button type="submit" class="btn btn-primary" disabled="@isLoading">
+                        @if (isLoading)
+                        {
+                            <span>Creating...</span>
+                        }
+                        else
+                        {
+                            <span>Create Game</span>
+                        }
+                    </button>
+                    <button type="button" class="btn btn-link" @onclick="Cancel">Cancel</button>
+                </div>
+            </EditForm>
+            @if (!string.IsNullOrEmpty(errorMessage))
+            {
+                <div class="alert alert-danger">@errorMessage</div>
+            }
+        </div>
+    }
+
+    @if (showJoinForm)
+    {
+        <div class="game-form">
+            <h2>Join Game</h2>
+            <EditForm Model="@joinModel" OnValidSubmit="JoinExistingGame">
+                <DataAnnotationsValidator />
+                <div class="form-group">
+                    <label for="roomCode">Room Code:</label>
+                    <InputText id="roomCode" class="form-control" @bind-Value="joinModel.RoomCode" placeholder="Enter 6-character code" maxlength="6" />
+                    <ValidationMessage For="@(() => joinModel.RoomCode)" />
+                </div>
+                <div class="form-group">
+                    <label for="joinPlayerName">Your Name:</label>
+                    <InputText id="joinPlayerName" class="form-control" @bind-Value="joinModel.PlayerName" placeholder="Enter your name" />
+                    <ValidationMessage For="@(() => joinModel.PlayerName)" />
+                </div>
+                <div class="form-actions">
+                    <button type="submit" class="btn btn-primary" disabled="@isLoading">
+                        @if (isLoading)
+                        {
+                            <span>Joining...</span>
+                        }
+                        else
+                        {
+                            <span>Join Game</span>
+                        }
+                    </button>
+                    <button type="button" class="btn btn-link" @onclick="Cancel">Cancel</button>
+                </div>
+            </EditForm>
+            @if (!string.IsNullOrEmpty(errorMessage))
+            {
+                <div class="alert alert-danger">@errorMessage</div>
+            }
+        </div>
+    }
+</div>
+
+@code {
+    private bool showStartForm = false;
+    private bool showJoinForm = false;
+    private bool isLoading = false;
+    private string errorMessage = string.Empty;
+
+    private StartGameModel startModel = new();
+    private JoinGameModel joinModel = new();
+
+    private void ShowStartForm()
+    {
+        showStartForm = true;
+        showJoinForm = false;
+        errorMessage = string.Empty;
+    }
+
+    private void ShowJoinForm()
+    {
+        showJoinForm = true;
+        showStartForm = false;
+        errorMessage = string.Empty;
+    }
+
+    private void Cancel()
+    {
+        showStartForm = false;
+        showJoinForm = false;
+        errorMessage = string.Empty;
+        startModel = new();
+        joinModel = new();
+    }
+
+    private void StartNewGame()
+    {
+        isLoading = true;
+        errorMessage = string.Empty;
+        
+        // Store player name and navigate to game page
+        // The Game page will handle creating the room via SignalR
+        Navigation.NavigateTo($"/game/new?playerName={Uri.EscapeDataString(startModel.PlayerName)}");
+    }
+
+    private void JoinExistingGame()
+    {
+        isLoading = true;
+        errorMessage = string.Empty;
+        
+        // Store join info and navigate to game page
+        var roomCode = joinModel.RoomCode.ToUpper();
+        Navigation.NavigateTo($"/game/{roomCode}?playerName={Uri.EscapeDataString(joinModel.PlayerName)}");
+    }
+
+    public class StartGameModel
+    {
+        [Required(ErrorMessage = "Please enter your name")]
+        [StringLength(50, MinimumLength = 1, ErrorMessage = "Name must be between 1 and 50 characters")]
+        public string PlayerName { get; set; } = string.Empty;
+    }
+
+    public class JoinGameModel
+    {
+        [Required(ErrorMessage = "Please enter the room code")]
+        [StringLength(6, MinimumLength = 6, ErrorMessage = "Room code must be 6 characters")]
+        public string RoomCode { get; set; } = string.Empty;
+
+        [Required(ErrorMessage = "Please enter your name")]
+        [StringLength(50, MinimumLength = 1, ErrorMessage = "Name must be between 1 and 50 characters")]
+        public string PlayerName { get; set; } = string.Empty;
+    }
+}
