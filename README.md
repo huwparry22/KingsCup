@@ -56,7 +56,7 @@ dotnet test
 
 ## Architecture Decisions
 
-See `.squad/decisions/inbox/danny-architecture.md` for detailed architectural decisions and rationale.
+See `.squad/decisions.md` for detailed architectural decisions and rationale.
 
 ## Team
 
