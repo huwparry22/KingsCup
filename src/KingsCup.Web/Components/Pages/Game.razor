@@ -169,14 +169,15 @@
             {
                 var roomCode = await hubConnection.InvokeAsync<string>("CreateGame", PlayerName);
                 RoomCode = roomCode;
-                Navigation.NavigateTo($"/game/{roomCode}?playerName={Uri.EscapeDataString(PlayerName)}", replace: true);
+                // Don't navigate - just update local state
+                // The hub will send RoomStateChanged callback with full state
+                isConnecting = false;
             }
             else
             {
                 await hubConnection.InvokeAsync("JoinGame", RoomCode, PlayerName);
+                isConnecting = false;
             }
-
-            isConnecting = false;
         }
         catch (Exception ex)
         {

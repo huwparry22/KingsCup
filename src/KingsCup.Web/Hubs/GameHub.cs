@@ -25,6 +25,9 @@ public class GameHub : Hub<IGameClient>
         
         await Groups.AddToGroupAsync(Context.ConnectionId, room.RoomCode);
         
+        // Send full room state to the creator
+        await Clients.Caller.RoomStateChanged(player.Id, room.Players, room.State, room.CurrentPlayer?.Id);
+        
         return room.RoomCode;
     }
 
@@ -36,15 +39,45 @@ public class GameHub : Hub<IGameClient>
         if (room.State != GameState.Lobby)
             throw new HubException("Game has already started.");
 
-        var player = new Player { Name = playerName, ConnectionId = Context.ConnectionId };
+        // Check if player with same name already exists
+        var existingPlayer = room.Players.FirstOrDefault(p => p.Name.Equals(playerName, StringComparison.OrdinalIgnoreCase));
         
-        room.AddPlayer(player);
+        Player player;
+        bool isReconnect = false;
+        
+        if (existingPlayer != null && !existingPlayer.IsConnected)
+        {
+            // Player is reconnecting - update their connection ID
+            existingPlayer.ConnectionId = Context.ConnectionId;
+            existingPlayer.IsConnected = true;
+            player = existingPlayer;
+            isReconnect = true;
+        }
+        else
+        {
+            // New player joining
+            player = new Player { Name = playerName, ConnectionId = Context.ConnectionId };
+            room.AddPlayer(player);
+        }
+        
         _connections[Context.ConnectionId] = (room.RoomCode, player.Id);
         
         await Groups.AddToGroupAsync(Context.ConnectionId, room.RoomCode);
         
-        await Clients.Group(room.RoomCode).PlayerJoined(player.Id, player.Name);
-        await Clients.Group(room.RoomCode).RoomStateChanged(room.State, room.Players.Count);
+        if (!isReconnect)
+        {
+            await Clients.Group(room.RoomCode).PlayerJoined(player.Id, player.Name);
+        }
+        
+        // Send full room state to the joining player
+        await Clients.Caller.RoomStateChanged(player.Id, room.Players, room.State, room.CurrentPlayer?.Id);
+        
+        // Update all other clients with the current player list
+        await Clients.GroupExcept(room.RoomCode, Context.ConnectionId).RoomStateChanged(
+            string.Empty, // Other clients don't need the selfPlayerId updated
+            room.Players, 
+            room.State, 
+            room.CurrentPlayer?.Id);
     }
 
     public async Task StartGame(string roomCode)
@@ -140,7 +173,14 @@ public class GameHub : Hub<IGameClient>
         }
         else
         {
-            await Clients.Group(room.RoomCode).RoomStateChanged(room.State, room.Players.Count);
+            // Update all clients with the current player list
+            foreach (var p in room.Players)
+            {
+                if (!string.IsNullOrEmpty(p.ConnectionId))
+                {
+                    await Clients.Client(p.ConnectionId).RoomStateChanged(p.Id, room.Players, room.State, room.CurrentPlayer?.Id);
+                }
+            }
         }
     }
 
@@ -172,5 +212,5 @@ public interface IGameClient
     Task CardDrawn(string playerId, string playerName, Card card, KingsCupRule rule, int cardsRemaining);
     Task GameOver(string winnerName, string reason);
     Task TurnChanged(string currentPlayerId, string currentPlayerName);
-    Task RoomStateChanged(GameState state, int playerCount);
+    Task RoomStateChanged(string selfPlayerId, List<Player> playerList, GameState state, string? currentTurnPlayerId);
 }
