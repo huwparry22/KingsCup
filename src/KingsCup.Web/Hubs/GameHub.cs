@@ -24,9 +24,8 @@ public class GameHub : Hub<IGameClient>
         _connections[Context.ConnectionId] = (room.RoomCode, player.Id);
         
         await Groups.AddToGroupAsync(Context.ConnectionId, room.RoomCode);
-        
-        // Send full room state to the creator
-        await Clients.Caller.RoomStateChanged(player.Id, room.Players, room.State, room.CurrentPlayer?.Id);
+
+        await BroadcastRoomState(room);
         
         return room.RoomCode;
     }
@@ -68,16 +67,8 @@ public class GameHub : Hub<IGameClient>
         {
             await Clients.Group(room.RoomCode).PlayerJoined(player.Id, player.Name);
         }
-        
-        // Send full room state to the joining player
-        await Clients.Caller.RoomStateChanged(player.Id, room.Players, room.State, room.CurrentPlayer?.Id);
-        
-        // Update all other clients with the current player list
-        await Clients.GroupExcept(room.RoomCode, Context.ConnectionId).RoomStateChanged(
-            string.Empty, // Other clients don't need the selfPlayerId updated
-            room.Players, 
-            room.State, 
-            room.CurrentPlayer?.Id);
+
+        await BroadcastRoomState(room);
     }
 
     public async Task StartGame(string roomCode)
@@ -85,10 +76,14 @@ public class GameHub : Hub<IGameClient>
         if (!_gameManager.TryGetGame(roomCode, out var room) || room == null)
             throw new HubException("Game not found.");
 
-        if (!room.CanStart)
+        if (room.State != GameState.Lobby)
+            throw new HubException("Game has already started.");
+
+        if (room.Players.Count < 2)
             throw new HubException("Need at least 2 players to start.");
 
         room.StartGame();
+        await BroadcastRoomState(room);
         
         var playerNames = room.Players.Select(p => p.Name).ToList();
         await Clients.Group(room.RoomCode).GameStarted(room.RoomCode, playerNames);
@@ -173,14 +168,7 @@ public class GameHub : Hub<IGameClient>
         }
         else
         {
-            // Update all clients with the current player list
-            foreach (var p in room.Players)
-            {
-                if (!string.IsNullOrEmpty(p.ConnectionId))
-                {
-                    await Clients.Client(p.ConnectionId).RoomStateChanged(p.Id, room.Players, room.State, room.CurrentPlayer?.Id);
-                }
-            }
+            await BroadcastRoomState(room);
         }
     }
 
@@ -200,6 +188,16 @@ public class GameHub : Hub<IGameClient>
         }
 
         await base.OnDisconnectedAsync(exception);
+    }
+
+    private async Task BroadcastRoomState(GameRoom room)
+    {
+        var broadcastTasks = room.Players
+            .Where(player => !string.IsNullOrEmpty(player.ConnectionId))
+            .Select(player => Clients.Client(player.ConnectionId)
+                .RoomStateChanged(player.Id, room.Players, room.State, room.CurrentPlayer?.Id));
+
+        await Task.WhenAll(broadcastTasks);
     }
 }
 

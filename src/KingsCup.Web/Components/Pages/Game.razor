@@ -220,17 +220,17 @@
             InvokeAsync(StateHasChanged);
         });
 
-        hubConnection.On("GameStarted", () =>
+        hubConnection.On<string, List<string>>("GameStarted", (roomCode, playerNames) =>
         {
             currentState = GameState.Playing;
             InvokeAsync(StateHasChanged);
         });
 
-        hubConnection.On<string, string, Card, string, string, int>("CardDrawn", 
-            (playerId, playerName, card, ruleName, ruleDescription, remaining) =>
+        hubConnection.On<string, string, Card, KingsCupRule, int>("CardDrawn", 
+            (playerId, playerName, card, rule, remaining) =>
         {
             currentCard = card;
-            currentRule = new KingsCupRule(ruleName, ruleDescription);
+            currentRule = rule;
             cardsRemaining = remaining;
             
             if (card.Rank == Rank.King)
@@ -241,14 +241,14 @@
             InvokeAsync(StateHasChanged);
         });
 
-        hubConnection.On<string, string>("GameOver", (playerId, playerName) =>
+        hubConnection.On<string, string>("GameOver", (winnerName, reason) =>
         {
             currentState = GameState.Finished;
-            gameOverMessage = $"{playerName} drew the 4th King!";
+            gameOverMessage = $"{winnerName}: {reason}";
             InvokeAsync(StateHasChanged);
         });
 
-        hubConnection.On<string>("TurnChanged", (playerId) =>
+        hubConnection.On<string, string>("TurnChanged", (playerId, playerName) =>
         {
             currentPlayerId = playerId;
             InvokeAsync(StateHasChanged);

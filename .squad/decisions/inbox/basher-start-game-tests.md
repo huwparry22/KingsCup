@@ -1,0 +1,4 @@
+### 2026-03-10T00:00:00Z: QA finding on start flow
+**By:** Huw Parry (via Copilot / Basher)
+**What:** Added hub-level tests proving the room can start after a second player joins. The observed "game won't start" behavior is not caused by GameRoom.CanStart or GameHub.StartGame. The likely defect is the client-side SignalR callback contract in Game.razor, which does not match the hub method signatures for GameStarted, CardDrawn, GameOver, and TurnChanged.
+**Why:** This needs revision by a different agent because the failing condition appears in the UI/client event handling, not in the tested hub start logic.

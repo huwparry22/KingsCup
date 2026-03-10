@@ -50,4 +50,9 @@
 - CardDisplay and PlayerList components
 - Mobile-first responsive CSS with dark green theme
 
+### 2026-03-10 - Start Flow QA Finding
+- Added hub-focused tests in tests/KingsCup.Tests/GameHubTests.cs to cover host create, second player join, and successful StartGame with two players.
+- Verified the server-side start condition works: after a second player joins, GameRoom.CanStart becomes true and GameHub.StartGame transitions the room to Playing.
+- Found the likely user-visible failure in the Blazor SignalR client callbacks: Game.razor subscribes to GameStarted, CardDrawn, GameOver, and TurnChanged with signatures that do not match the hub contract.
+
 ---

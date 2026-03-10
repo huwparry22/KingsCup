@@ -20,6 +20,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\KingsCup.Core\KingsCup.Core.csproj" />
+    <ProjectReference Include="..\..\src\KingsCup.Web\KingsCup.Web.csproj" />
   </ItemGroup>
 
 </Project>
