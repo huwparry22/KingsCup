@@ -480,10 +480,3 @@ $RECYCLE.BIN/
 
 # Vim temporary swap files
 *.swp
-
-# Squad: ignore runtime/diagnostic logs (not needed across machines)
-.squad/orchestration-log/
-.squad/log/
-.squad/sessions/
-# Squad: SubSquad activation file (local to this machine)
-.squad-workstream
