@@ -1,0 +1,13 @@
+{
+  "id": "7255acc3-fbfa-4d8f-a600-d26fb5ecbf17",
+  "createdAt": "2026-03-09T21:12:46.524Z",
+  "lastActiveAt": "2026-03-09T21:14:42.568Z",
+  "messages": [
+    {
+      "role": "agent",
+      "agentName": "coordinator",
+      "content": "Yes! I can chat normally too. Though I'm set up as a Squad Coordinator for the KingsCup project, so I'm always ready to route work to the right team member when you need it. What's on your mind?",
+      "timestamp": "2026-03-09T21:14:19.475Z"
+    }
+  ]
+}
